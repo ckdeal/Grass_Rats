@@ -102,7 +102,7 @@ library(ggtree) # for visualizing phylogenetic trees
 library(ape) # for manipulating phylogenetic trees
 
 Qmeta <- read.csv(("metadata_cut_for_shannon.csv"), fill=T, stringsAsFactors=FALSE)
-shannon <-read_qza("shannon_vector.qza")
+shannon <- read_qza("shannon_vector.qza")
 
 ## Sanity check: Check for full overlap between metadata and shannon file
 shannon<-shannon$data %>% rownames_to_column("SampleID") 
@@ -147,7 +147,6 @@ dev.off()
 
 
 ## model shannon diversity by treatment and photoperiod
-
 #set factors
 # just run trial 2
 alphalm = lme4::lmer(shannon_entropy ~ Experimental.Trial*Photoperiod + (1|GrassRat_ID), data = Qmeta)
@@ -155,7 +154,6 @@ alphalm = lme4::lmer(shannon_entropy ~ Experimental.Trial*Photoperiod + (1|Grass
 if(requireNamespace("pbkrtest", quietly = TRUE))
   anova(alphalm, ddf="Kenward-Roger")
 
-car::Anova(alphalm, test.statistic = ("F"))
 car::qqp(resid(alphalm))
 plot(density(resid(alphalm)))
 pairs(emmeans(alphalm, ~Experimental.Trial|Photoperiod))
@@ -231,3 +229,73 @@ uwunifrac$data$Vectors %>%
   labs(x = "PCoA1", y = "PCoA2") + 
   guides(shape = guide_legend(override.aes = list(size=3)), color = guide_legend(override.aes = list(size=3)))
 ggsave("PCoA.tiff", height=4, width=5, dpi = 300) 
+
+
+# correlate microbiome with liver steatosis
+Qmeta <- read.csv(("metadata_cut_for_shannon.csv"), fill=T, stringsAsFactors=FALSE)
+
+Qmeta$Sucrose_long <- Qmeta$Sucrose
+Qmeta$Sucrose_long <- revalue(Qmeta$Sucrose_long, c("yes"="HighSucrose", "no" = "NoSucrose"))
+Qmeta$PhotoSugar <- paste(Qmeta$Photoperiod, Qmeta$Sucrose_long, sep="_")
+Qmeta$PhotoSugar[Qmeta$PhotoSugar=="NA_NA"] <- "NA"
+
+# Join metadata and shannon
+Qmeta<-  Qmeta %>% 
+  left_join(shannon, by = "SampleID")
+head(Qmeta)
+## 
+Qmeta$Experimental.Trial = as.character(Qmeta$Experimental.Trial)
+as.factor(Qmeta$Experimental.Trial)
+
+Qmeta$Experimental.Trial = recode_factor(Qmeta$Experimental.Trial, "2wk acclim" = "0", 
+                                         "4wk photoperiod" = "4", "0% HCS" = "7",
+                                         "8% HCS" = "7") # reorder/rename levels
+
+Qmeta2 = Qmeta %>% filter(Type == "Int") %>%
+  filter(GrassRat_ID != "B17" & GrassRat_ID != "N5") %>% select(-Experimental.Trial)
+
+Qmeta3 = Qmeta %>% filter(Type == "Fecal") %>% 
+  filter(GrassRat_ID != "B17" & GrassRat_ID != "N5")
+
+# Correlate fecal shannon diversity and percent liver steatosis
+fecalMicroANDliver = lmer(shannon_entropy ~ PercentArea_liver_fat + (1|GrassRat_ID) + (1|Experimental.Trial), Qmeta3, REML = TRUE)
+qqp(resid(fecalMicroANDliver))
+
+if(requireNamespace("pbkrtest", quietly = TRUE))
+  anova(fecalMicroANDliver, ddf="Kenward-Roger")
+
+fecalMicroANDliver2 = lmer(shannon_entropy ~ PercentArea_liver_fat + (1|GrassRat_ID) + (1|Experimental.Trial) + (1|ParentPair), Qmeta3, REML = TRUE)
+
+if(requireNamespace("pbkrtest", quietly = TRUE))
+  anova(fecalMicroANDliver2, ddf="Kenward-Roger")
+
+plot(shannon_entropy ~ PercentArea_liver_fat, Qmeta)
+
+# intestine
+intMicroANDliver = lmer(shannon_entropy ~ PercentArea_liver_fat + (1|ParentPair), Qmeta2, REML = TRUE)
+qqp(resid(intMicroANDliver))
+
+if(requireNamespace("pbkrtest", quietly = TRUE))
+  anova(intMicroANDliver, ddf="Kenward-Roger")
+
+## Micriobiome bar plots by treatment ####
+microFeatures = read.csv("GRP_20191213.rarefied-class-feature-table.csv")
+metadata = read.csv("GRP_20191213.metadata.csv")
+meltmicroFeatures1 = data.frame(Class = microFeatures$D2, microFeatures[,8:173])
+meltmicroFeatures = melt(meltmicroFeatures1, id.vars = c("Class"))
+meltmicroFeaturesMerge = merge(meltmicroFeatures, metadata)
+
+
+aggregated_df <- aggregate(value ~ Class + Photoperiod + Sugar + Type, data = meltmicroFeaturesMerge, FUN = sum)
+aggregated_df = aggregated_df[-c(1,24,47,70, 93, 116, 139, 162),]
+
+ggplot(aggregated_df, aes(x = Photoperiod, y = value, fill = Class)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Treatment", y = "Count", fill = "Microbiome Class") +
+  theme_bw() + facet_grid(~Sugar, labeller = labeller(Sugar = c("High" = "8% Sucrose", "None" = "Water"))) + 
+  theme(legend.title = element_text(size = 10, hjust = 0.5), 
+        legend.key.size = unit(0.5, "cm"),   # Adjust the size of the legend key
+        legend.text = element_text(size = 7))  # Adjust the size of the legend text
+
+
+ggsave("microbiomeBYclass.tiff", height=4, width=7, dpi = 600)
