@@ -27,13 +27,31 @@ setwd("~/Library/CloudStorage/OneDrive-Colostate/CSU/GrassRats/GrassRats/Animal_
 conc <- read.csv("SugarConcTest_weights_05Feb2020.csv")
 fatpad <- read.csv(("Fat_pads.csv"))
 weights <- read.csv(("Animal_weights_forMassChange.csv"))
-liverdata = read.csv("GrassRat_Liver_Analyses/Merged_Liver.csv")
+liverdata = read.csv("Merged_Liver.csv")
+age = read.csv("Chamber_Animal_IDs_Sex_bothPhases.csv")
 # Set theme
 my_theme <- theme_classic(base_size = 12) + 
   theme(panel.border = element_rect(colour = "black", fill=NA))
 
-# ANIMAL WEIGHT DATA ####
+# Animal Age data ####
+#both phases
+age$startAge = (age$AgeAtDeath_days - 61)
+age = age %>% filter(GrassRat_ID != "G28")
+age = age[-(46:47),]
 
+mean(age$startAge, na.rm = TRUE)
+sd(age$startAge, na.rm = TRUE)
+
+agephase1 = age %>% filter(Phase == 1)
+mean(agephase1$startAge, na.rm = TRUE)
+sd(agephase1$startAge, na.rm = TRUE)
+
+agephase2 = age %>% filter(Phase == 2)
+mean(agephase2$startAge, na.rm = TRUE)
+sd(agephase2$startAge, na.rm = TRUE)
+
+# ANIMAL WEIGHT DATA ####
+weight
 # subset data and set factors for body mass change over experiment
 weight = weights %>% dplyr::select(Individual, Group, Sugar, Photoperiod, Weight_start, Weight_euthanasia) %>% group_by(Sugar, Photoperiod) %>% 
   na.omit()
@@ -259,7 +277,7 @@ twopercentTest$Treatment = as.factor(twopercentTest$Treatment)
 # Look at data
 hist(twopercentTest$Consumed)
 
-## Plot 2% consumption over 3-day Test period
+## Plot 2% consumption over 2-day Test period
 ggplot(twopercentTest, aes(Treatment, Consumed, group = Treatment)) + 
   geom_boxplot(aes(fill = Treatment), outlier.shape = NA) + 
   geom_point(aes(fill = Treatment), size = 1.5, shape = 21, 
@@ -287,77 +305,89 @@ write.csv(zeroAnd8, "SucroseTest.csv") # clean data to remove 0.02, 0.04, 0.06 s
 zeroAnd8Clean = read.csv("SucroseTest.csv")
 zeroAnd8Clean = zeroAnd8Clean %>% filter(Sugar_mmt_good == "Y") %>% filter(Water_mmt_good == "Y") 
 
-# Look at difference in consumption between 0.08
+# Look at difference in consumption between 0.00
 # FIlter out 8% animals for 0% water preference ####
-NoSugarAnimals = zeroAnd8Clean %>% select(-DopamineStage) %>% select(Day, Indiv, Treatment,                                                 Sugar_conc, Sugar_mmt_good,                                                    Water_mmt_good, Consumed, Fed_water_g_perday,Fed_sugarsoln_g_perday) %>% 
+#sugar consumption preference
+
+NoSugarAnimals = zeroAnd8Clean %>% select(-DopamineStage) %>% select(Indiv, Day, Treatment,                                                 Sugar_conc, Sugar_mmt_good,                                                    Water_mmt_good, Consumed, Fed_water_g_perday,Fed_sugarsoln_g_perday) %>% 
   filter(Sugar_conc == 0.00) %>% filter(Sugar_mmt_good == "Y") %>% filter(Water_mmt_good == "Y") 
 NoSugarAnimals$Indiv = as.factor(NoSugarAnimals$Indiv)
 NoSugarAnimals$Day = as.factor(NoSugarAnimals$Day)
 
-NoSugarAnimals$BottlePref = (NoSugarAnimals$Fed_water_g_perday - NoSugarAnimals$Fed_sugarsoln_g_perday)
+# bottle 1 filter
+NosugarAnimalsBottle1 = NoSugarAnimals %>% select(-Fed_sugarsoln_g_perday)
+NosugarAnimalsBottle1$Bottle = 1 #add bottle column
+colnames(NosugarAnimalsBottle1)[8] = 'Drank' #change column name
+#bottle 2 filter
+NosugarAnimalsBottle2 = NoSugarAnimals %>% select(-Fed_water_g_perday)
+NosugarAnimalsBottle2$Bottle = 2 #add bottle column
+colnames(NosugarAnimalsBottle2)[8] = 'Drank'
 
-nosugarperlm = lmer(BottlePref ~ (1|Indiv) + (1|Day), NoSugarAnimals, REML = TRUE)
+#merge the frames by ID and Day
+NoSugarAnimalsNEW = rbind(NosugarAnimalsBottle1, NosugarAnimalsBottle2)
+
+#nosugarperlm = lmer(BottlePref ~ (1|Indiv) + (1|Day), NoSugarAnimals, REML = TRUE)
+nosugarperlm = lmer(Drank ~ Bottle + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
 qqp(resid(nosugarperlm))
 plot(density(resid(nosugarperlm)))
-summary(nosugarperlm)
 
 #Normalize and rerun
 library(bestNormalize)
-bestobj = bestNormalize(NoSugarAnimals$BottlePref)
-bestobj # ordernorm best
-bestobj1 = orderNorm(NoSugarAnimals$BottlePref)
-NoSugarAnimals$valueNorm = bestobj1$x.t
+#bestobj = bestNormalize(NoSugarAnimals$BottlePref)
+#bestobj # ordernorm best
+#bestobj1 = orderNorm(NoSugarAnimals$BottlePref)
+#NoSugarAnimals$valueNorm = bestobj1$x.t
 
-nosugarperlm1 = lmer(valueNorm ~ (1|Indiv) + (1|Day), NoSugarAnimals, REML = TRUE)
+bestobj = bestNormalize(NoSugarAnimalsNEW$Drank)
+bestobj # ordernorm best
+bestobj1 = orderNorm(NoSugarAnimalsNEW$Drank)
+NoSugarAnimalsNEW$valueNormWater = bestobj1$x.t
+
+nosugarperlm1 = lmer(valueNormWater ~ Bottle + Treatment + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
 qqp(resid(nosugarperlm1))
 plot(density(resid(nosugarperlm1)))
-summary(nosugarperlm1)
 
-# Effects of Photoperiod on bottle preference for water ONLY animals ####
-Wateronlylm = lmer(valueNorm ~ Treatment + (1|Indiv) + (1|Day), NoSugarAnimals, REML = TRUE)
-qqp(resid(Wateronlylm))
-plot(density(resid(Wateronlylm)))
+if(requireNamespace("pbkrtest", quietly = TRUE))
+  anova(nosugarperlm1, type=2, ddf="Kenward-Roger")
 
-if(requireNamespace("pbkrtest", quietly = TRUE)) 
-  anova(Wateronlylm, type=2, ddf="Kenward-Roger")
-
-####
-#Filter out 0% animals for boittle rpeference on 8% sucrose ####
+# filter out 0% animals ####
 EightperAnimals = zeroAnd8Clean %>% select(-DopamineStage) %>% select(Indiv,Day, Treatment,                                                 Sugar_conc, Sugar_mmt_good,                                                    Water_mmt_good, Consumed, Fed_water_g_perday, Fed_sugarsoln_g_perday) %>% 
   filter(Sugar_conc == 0.08) %>% filter(Sugar_mmt_good == "Y") %>% filter(Water_mmt_good == "Y")
-
-EightperAnimals$BottlePref = (EightperAnimals$Fed_water_g_perday - EightperAnimals$Fed_sugarsoln_g_perday)
 EightperAnimals$Indiv = as.factor(EightperAnimals$Indiv)
 EightperAnimals$Day = as.factor(EightperAnimals$Day)
+#bottle 1 filter
+EightperAnimalsBottle1 = EightperAnimals %>% select(-Fed_sugarsoln_g_perday)
+EightperAnimalsBottle1$Bottle = 1 #add bottle column
+colnames(EightperAnimalsBottle1)[8] = 'Drank'
+#bottle 2 filter
+EightperAnimalsBottle2 = EightperAnimals %>% select(-Fed_water_g_perday)
+EightperAnimalsBottle2$Bottle = 2 #add bottle column
+colnames(EightperAnimalsBottle2)[8] = 'Drank'
 
-eightperlm = lmer(BottlePref ~ (1|Indiv) + (1|Day), EightperAnimals, REML = TRUE)
+#merge the frames by ID and Day
+EightperAnimalsNEW = rbind(EightperAnimalsBottle1, EightperAnimalsBottle2)
+
+#eightperlm = lmer(BottlePref ~ (1|Indiv) + (1|Day), EightperAnimals, REML = TRUE)
+# relationship of second bottle consumed to the first bottle
+eightperlm = lmer(Drank ~ Bottle + Treatment + (1|Indiv) + (1|Day), EightperAnimalsNEW, REML = TRUE)
 qqp(resid(eightperlm))
 plot(density(resid(eightperlm)))
-summary(eightperlm)
 
-#Normalize and rerun
 library(bestNormalize)
-bestobj = bestNormalize(EightperAnimals$BottlePref)
-bestobj # boxcox best
-bestobj1 = orderNorm(EightperAnimals$BottlePref)
-EightperAnimals$valueNorm = bestobj1$x.t
+bestobj = bestNormalize(EightperAnimalsNEW$Drank)
+bestobj # ordernorm best
+bestobj1 = orderNorm(EightperAnimalsNEW$Drank)
+EightperAnimalsNEW$valueNormSugar = bestobj1$x.t
 
-eightperlm1 = lmer(valueNorm ~ (1|Indiv) + (1|Day), EightperAnimals, REML = TRUE)
+eightperlm1 = lmer(valueNormSugar ~ Bottle + Treatment + (1|Indiv) + (1|Day), EightperAnimalsNEW, REML = TRUE)
 qqp(resid(eightperlm1))
 plot(density(resid(eightperlm1)))
 
-summary(eightperlm)
-
-# Effects of Photoperiod on Consumption for sucrose animals ####
-Highsuclm = lmer(valueNorm ~ Treatment + (1|Indiv) + (1|Day), EightperAnimals, REML = TRUE)
-qqp(resid(Highsuclm))
-plot(density(resid(Highsuclm)))
-
 if(requireNamespace("pbkrtest", quietly = TRUE)) 
-  anova(Highsuclm, type=2, ddf="Kenward-Roger")
+  anova(eightperlm1, type=2, ddf="Kenward-Roger")
 
+## Figure 4
 ## Plot 0% and 8% consumption
-
 ggplot(zeroAnd8Clean, aes(Treatment, Consumed)) + 
   geom_boxplot(aes(fill = Treatment), outlier.shape = NA) + 
   geom_point(aes(fill = Treatment), size = 1.5, shape = 21, 
