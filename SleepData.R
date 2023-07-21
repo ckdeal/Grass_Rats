@@ -486,6 +486,45 @@ if(requireNamespace("pbkrtest", quietly = TRUE))
   anova(highSucroseSleep, type=2, ddf="Kenward-Roger")
 
 
+## Average percetn sleep 6-9 weeks after short photoperiod was initially exposed to 4:20
+my_theme <- theme_classic(base_size = 12) + 
+  theme(panel.border = element_rect(colour = "black", fill=NA))
+#Both phases
+postsugar_percbouts1 <- read.csv("HighSucrose_29May2019_PercentHourlySleep_processed.csv")
+postsugar_percbouts2 <- read.csv("Phase2_8%sucrose_21Aug2019_PercentHourlySleep_processed.csv") 
+
+m.postsugar_percbouts1 <- melt(postsugar_percbouts1, 
+                               id.vars=c("Date","Day", "Month", "Year", "Hour", "Minute", "am_pm"), 
+                               measure.vars=c("G9", "G5","G14","G16", "G18", "G10",
+                                              "G8", "G2", "T10", "T5", "T17", "T12",
+                                              "G4", "G1", "G13", "G17", "G19", "G11",
+                                              "G12", "G3", "T9", "T11", "T19", "T13")) 
+
+m.postsugar_percbouts2 <- melt(postsugar_percbouts2, 
+                               id.vars=c("Date","Day", "Month", "Year", "Hour", "Minute", "am_pm"), 
+                               measure.vars=c("G35", "G23", "G24", "G28", "G29", "G22", 
+                                              "T1", "G36", "G27", "G40", "G33",
+                                              "G20", "G21", "G26", "T32", "G31", "G39", "G34", "G37", "G25", 
+                                              "G38", "G30")) 
+
+##Merge phase 1 and 2
+percbouts <- rbind(m.postsugar_percbouts1, m.postsugar_percbouts2)
+## Add sugar availability column
+mer.percbouts <- merge(percbouts, anim_ID_sex, by.x = "variable", by.y="GrassRat_ID")
+
+##Both phases
+my_theme <- theme_classic(base_size = 12) + 
+  theme(panel.border = element_rect(colour = "black", fill=NA))
+##Both phases
+ggplot(mer.percbouts, aes(Hour_shifted,value)) +  
+  stat_pop_sleep_trial(aes(col=Photoperiod.y)) + my_theme +
+  ylab("Percentage hourly sleep") + xlab("Hour of day")+ 
+  labs(color = "Photoperiod") +
+  expand_limits(y=c(NA, 90)) + 
+  scale_x_continuous(breaks =seq(0,24,1)) +
+  scale_color_manual(values = c("#56B4E9", "#D55E00")) +
+  scale_fill_manual(values = c("#56B4E9", "#D55E00"))
+ggsave("percentsleep.tiff", width = 6.5, height =4, dpi = 300)
   
   
   

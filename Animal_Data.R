@@ -277,13 +277,16 @@ twopercentTest$Treatment = as.factor(twopercentTest$Treatment)
 # Look at data
 hist(twopercentTest$Consumed)
 
+# Turn consumption into a percentage
+twopercentTest$PercConsumed = twopercentTest$Consumed*100
+
 ## Plot 2% consumption over 2-day Test period
-ggplot(twopercentTest, aes(Treatment, Consumed, group = Treatment)) + 
+ggplot(twopercentTest, aes(Treatment, PercConsumed, group = Treatment)) + 
   geom_boxplot(aes(fill = Treatment), outlier.shape = NA) + 
   geom_point(aes(fill = Treatment), size = 1.5, shape = 21, 
              position = position_jitterdodge()) + 
   my_theme + 
-  labs(y = "2% sugar solution consumed (g)", x = "Photoperiod") + 
+  labs(y = "Proportion of 2% solution consumed (%)", x = "Photoperiod") + 
   scale_fill_manual(values = c("blue", "grey80")) + 
   scale_x_discrete(labels=c("Long" = "Neutral", "Short" = "Short")) + 
   scale_fill_manual(name= c("Photoperiod"), labels=c("Neutral", "Short"), 
