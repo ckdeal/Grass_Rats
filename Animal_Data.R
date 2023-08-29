@@ -124,10 +124,8 @@ dev.off()
 
 library(cowplot)
 plot_grid(plots, legends, nrow = 1, align = "h")
-### Had to edit these two graphs together in preview since the figure legend for the graph wt was being tricky to add to wtplot2....
 
 ## Model the change in body mass data for 4-week acclimation
-
 weights$Individual = as.factor(weights$Individual)
 weights$Photoperiod = as.factor(weights$Photoperiod)
 weights$Sugar = as.factor(weights$Sugar)
@@ -172,7 +170,6 @@ pairs(emmeans(euthaov2, ~Photoperiod*Sugar))
 
 
 ## Kruskal wallis for weight at euthanasia
-
 inter = interaction(weights$Photoperiod, weights$Sugar)
 kruskal.test(weights$pct_euthanasia, weights$Photoperiod)
 kruskal.test(weights$pct_euthanasia, weights$Sugar)
