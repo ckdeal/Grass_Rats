@@ -124,10 +124,8 @@ dev.off()
 
 library(cowplot)
 plot_grid(plots, legends, nrow = 1, align = "h")
-### Had to edit these two graphs together in preview since the figure legend for the graph wt was being tricky to add to wtplot2....
 
 ## Model the change in body mass data for 4-week acclimation
-
 weights$Individual = as.factor(weights$Individual)
 weights$Photoperiod = as.factor(weights$Photoperiod)
 weights$Sugar = as.factor(weights$Sugar)
@@ -170,9 +168,7 @@ qqp(resid(euthaov2))
 summary(euthaov2)
 pairs(emmeans(euthaov2, ~Photoperiod*Sugar))
 
-
 ## Kruskal wallis for weight at euthanasia
-
 inter = interaction(weights$Photoperiod, weights$Sugar)
 kruskal.test(weights$pct_euthanasia, weights$Photoperiod)
 kruskal.test(weights$pct_euthanasia, weights$Sugar)
@@ -292,6 +288,7 @@ ggplot(twopercentTest, aes(Treatment, PercConsumed, group = Treatment)) +
   scale_fill_manual(name= c("Photoperiod"), labels=c("Neutral", "Short"), 
                     values = c("#56B4E9", "#D55E00"))
 
+
 ggsave("twopercentconsume.tiff", width = 5, height = 4, dpi = 300)
 
 ## 2% consumption model
@@ -307,15 +304,19 @@ write.csv(zeroAnd8, "SucroseTest.csv") # clean data to remove 0.02, 0.04, 0.06 s
 
 zeroAnd8Clean = read.csv("SucroseTest.csv")
 zeroAnd8Clean = zeroAnd8Clean %>% filter(Sugar_mmt_good == "Y") %>% filter(Water_mmt_good == "Y") 
+zeroAnd8Clean = zeroAnd8Clean %>% filter(is.na(zeroAnd8Clean$DopamineStage))
 
 # Look at difference in consumption between 0.00
 # FIlter out 8% animals for 0% water preference ####
 #sugar consumption preference
 
-NoSugarAnimals = zeroAnd8Clean %>% select(-DopamineStage) %>% select(Indiv, Day, Treatment,                                                 Sugar_conc, Sugar_mmt_good,                                                    Water_mmt_good, Consumed, Fed_water_g_perday,Fed_sugarsoln_g_perday) %>% 
+NoSugarAnimals = zeroAnd8Clean %>% select(-DopamineStage) %>% 
+  select(Indiv, Day, Treatment,Sugar_conc,Sugar_mmt_good,Water_mmt_good, 
+         Consumed, Fed_water_g_perday,Fed_sugarsoln_g_perday, Sex) %>% 
   filter(Sugar_conc == 0.00) %>% filter(Sugar_mmt_good == "Y") %>% filter(Water_mmt_good == "Y") 
 NoSugarAnimals$Indiv = as.factor(NoSugarAnimals$Indiv)
 NoSugarAnimals$Day = as.factor(NoSugarAnimals$Day)
+NoSugarAnimals$Sex = as.factor(NoSugarAnimals$Sex)
 
 # bottle 1 filter
 NosugarAnimalsBottle1 = NoSugarAnimals %>% select(-Fed_sugarsoln_g_perday)
@@ -330,7 +331,11 @@ colnames(NosugarAnimalsBottle2)[8] = 'Drank'
 NoSugarAnimalsNEW = rbind(NosugarAnimalsBottle1, NosugarAnimalsBottle2)
 
 #nosugarperlm = lmer(BottlePref ~ (1|Indiv) + (1|Day), NoSugarAnimals, REML = TRUE)
-nosugarperlm = lmer(Drank ~ Bottle + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
+nosugarperlm = lmer(Drank ~ Bottle + Treatment + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
+qqp(resid(nosugarperlm))
+plot(density(resid(nosugarperlm)))
+
+nosugarperlm = lmer(Drank ~ Bottle + Treatment*Sex + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
 qqp(resid(nosugarperlm))
 plot(density(resid(nosugarperlm)))
 
@@ -350,11 +355,19 @@ nosugarperlm1 = lmer(valueNormWater ~ Bottle + Treatment + (1|Indiv) + (1|Day), 
 qqp(resid(nosugarperlm1))
 plot(density(resid(nosugarperlm1)))
 
+#look at sex in response to reviewer 1
+nosugarperlm1 = lmer(valueNormWater ~ Bottle + Treatment*Sex + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
+qqp(resid(nosugarperlm1))
+plot(density(resid(nosugarperlm1)))
+
+
 if(requireNamespace("pbkrtest", quietly = TRUE))
   anova(nosugarperlm1, type=2, ddf="Kenward-Roger")
 
 # filter out 0% animals ####
-EightperAnimals = zeroAnd8Clean %>% select(-DopamineStage) %>% select(Indiv,Day, Treatment,                                                 Sugar_conc, Sugar_mmt_good,                                                    Water_mmt_good, Consumed, Fed_water_g_perday, Fed_sugarsoln_g_perday) %>% 
+EightperAnimals = zeroAnd8Clean %>% select(-DopamineStage) %>% 
+  select(Indiv,Day, Treatment,Sugar_conc, Sugar_mmt_good, Water_mmt_good, 
+         Consumed, Fed_water_g_perday, Fed_sugarsoln_g_perday, Sex) %>% 
   filter(Sugar_conc == 0.08) %>% filter(Sugar_mmt_good == "Y") %>% filter(Water_mmt_good == "Y")
 EightperAnimals$Indiv = as.factor(EightperAnimals$Indiv)
 EightperAnimals$Day = as.factor(EightperAnimals$Day)
@@ -386,20 +399,37 @@ eightperlm1 = lmer(valueNormSugar ~ Bottle + Treatment + (1|Indiv) + (1|Day), Ei
 qqp(resid(eightperlm1))
 plot(density(resid(eightperlm1)))
 
+# model sex in response to reviewer 1
+eightperlm1 = lmer(valueNormSugar ~ Bottle + Treatment*Sex + (1|Indiv) + (1|Day), EightperAnimalsNEW, REML = TRUE)
+qqp(resid(eightperlm1))
+plot(density(resid(eightperlm1)))
+
 if(requireNamespace("pbkrtest", quietly = TRUE)) 
   anova(eightperlm1, type=2, ddf="Kenward-Roger")
 
+pairs(emmeans(eightperlm1, ~Sex|Treatment))
 ## Figure 4
 ## Plot 0% and 8% consumption
-ggplot(zeroAnd8Clean, aes(Treatment, Consumed)) + 
+threeWeekTest = read.csv("threeWeekTest.csv") # open as new data frame
+# set factors
+threeWeekTest$Treatment = as.factor(threeWeekTest$Treatment)
+threeWeekTest$Sugar_conc = as.factor(threeWeekTest$Sugar_conc)
+# make consumption as a percentage
+threeWeekTest$Consumed = threeWeekTest$Consumed*100
+threeWeekTest$Sugar_conc_Char = NA
+threeWeekTest$Sugar_conc_Char[which(threeWeekTest$Sugar_conc=='0')] = 'Water'
+threeWeekTest$Sugar_conc_Char[which(threeWeekTest$Sugar_conc=='0.08')] = "8% Sucrose"
+
+ggplot(threeWeekTest, aes(Treatment, Consumed)) + 
   geom_boxplot(aes(fill = Treatment), outlier.shape = NA) + 
-  geom_point(aes(fill = Treatment), size = 1.5, shape = 21, 
+  geom_point(aes(fill = Treatment), size = 1.5, shape = threeWeekTest$Sex, 
              position = position_jitterdodge()) +
-  facet_grid(~Sugar_conc) + my_theme + 
+  facet_grid(~factor(Sugar_conc_Char, levels = c("Water", "8% Sucrose"))) + my_theme + 
   scale_fill_manual(values = c("blue", "grey80")) + 
-  labs(y = "Proportion consumed of second bottle (%)") + scale_x_discrete(labels=c("Long" = "Neutral", "Short" = "Short")) + 
-  scale_fill_manual(name="Treatment", labels=c("Neutral", "Short"), 
-                    values = c("blue", "grey80"))
+  labs(y = "Proportion consumed of second bottle (%)", x = "Photoperiod") + scale_x_discrete(labels=c("Long" = "Neutral", "Short" = "Short")) + 
+  scale_fill_manual(name="Photoperiod", labels=c("Neutral", "Short"), 
+                    values = c("#56B4E9", "#D55E00"))
 
 ggsave("0and8.tiff", width =5 , height = 4, dpi = 300)
 
+ggsave("0and8.png", width =5 , height = 4, dpi = 300)
