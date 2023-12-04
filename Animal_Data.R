@@ -19,16 +19,17 @@
   library(vtable)
   library(easystats)
   library(merDeriv)
-  library(patchwork)}
+  library(patchwork)
+  library(lmerTest)}
 
 
 ## Read in data files
-setwd("~/Library/CloudStorage/OneDrive-Colostate/CSU/GrassRats/GrassRats/Animal_data")
 conc <- read.csv("SugarConcTest_weights_05Feb2020.csv")
 fatpad <- read.csv(("Fat_pads.csv"))
 weights <- read.csv(("Animal_weights_forMassChange.csv"))
 liverdata = read.csv("Merged_Liver.csv")
 age = read.csv("Chamber_Animal_IDs_Sex_bothPhases.csv")
+
 # Set theme
 my_theme <- theme_classic(base_size = 12) + 
   theme(panel.border = element_rect(colour = "black", fill=NA))
@@ -62,27 +63,31 @@ mean(weight$pctChange) #mean
 sd(weight$pctChange) #sd
 
 ## Plot of pct weight from start to end 
-weight2 = weight %>% ungroup(Photoperiod, Sugar) %>% select(Individual, Weight_start, Weight_euthanasia) %>%
-  melt()
-bp = ggplot(weight2, aes(variable, value), group = variable) + geom_boxplot(aes(fill = variable))
-bp + labs(x = NULL, y = "Percent change in body mass (%)") + scale_x_discrete(breaks=c("Weight_start","Weight_euthanasia"),
-                                                                              labels=c("Start Weight", "Euthanasia Weight")) + my_theme + 
-  scale_fill_discrete(labels=c('Start Weight', 'Euthanasia Weight')) + 
-  theme(legend.title=element_blank()) + geom_signif(comparisons = list(c("Weight_start", "Weight_euthanasia")), 
-                                                    map_signif_level=TRUE)
-ggsave("pctchange.tiff", width = 5, height = 3, dpi = 300)
+#weight2 = weight %>% ungroup(Photoperiod, Sugar) %>% select(Individual, Weight_start, Weight_euthanasia) %>%
+  #melt()
+#bp = ggplot(weight2, aes(variable, value), group = variable) + geom_boxplot(aes(fill = variable))
+#bp + labs(x = NULL, y = "Percent change in body mass (%)") + scale_x_discrete(breaks=c("Weight_start","Weight_euthanasia"),
+                                                                              #labels=c("Start Weight", "Euthanasia Weight")) + my_theme + 
+  #scale_fill_discrete(labels=c('Start Weight', 'Euthanasia Weight')) + 
+  #theme(legend.title=element_blank()) + geom_signif(comparisons = list(c("Weight_start", "Weight_euthanasia")), 
+                                                    #map_signif_level=TRUE)
+
+#ggsave("pctchange.png", width = 5, height = 4, dpi = 800)
 
 ## model this pct change
 pct = lmer(value~variable + (1|Individual), weight2)
 if(requireNamespace("pbkrtest", quietly = TRUE))
-  anova(pct, type=2, ddf="Kenward-Roger")
+  anova(pct, type=3, ddf="Kenward-Roger")
+
+summary(pct)
 qqp(resid(pct))
 hist(resid(pct))
 
 ## Subset data in 4-week acclimation ####
-#group by 4-week photoperiod group by photoperiod
+#group by 4-week photoperiod
 wt = weights %>% group_by(Photoperiod) %>% summarise(fourwkMean = mean(pct_presugar), fourwksd = sd(pct_presugar))
 wt$Photoperiod = as.factor(wt$Photoperiod)
+
 #group by euthanasia by photoperiod and sugar
 wt2 = weights %>% group_by(Photoperiod, Sugar) %>% summarise(euthanasiaMean = mean(pct_euthanasia), euthanasiasd = sd(pct_euthanasia))
 wt2$Photoperiod = as.factor(wt2$Photoperiod)
@@ -119,7 +124,7 @@ plots = ggarrange(rm_legend(wtplot), rm_legend(wtplot2), nrow = 1)
 
 ggarrange(plots, legends, widths = c(0.85, 0.15), nrow = 1) 
 
-ggsave("4week.tiff", path = NULL, width=8, height=4.5, dpi = 300)
+ggsave("4week.png", path = NULL, width=8, height=4.5, dpi = 800)
 dev.off()
 
 library(cowplot)
@@ -180,7 +185,6 @@ dunnTest(pct_euthanasia ~ inter, data = weights, method="bh")
 
 
 # FAT PAD DATA ####
-
 #set factors
 fatpad$Individual = as.character(fatpad$Individual)
 fatpad$Treatment = as.factor(fatpad$Treatment)
@@ -196,7 +200,7 @@ ggplot(fatpad, aes(Treatment, Fat_pad_wt_g, fill = Sugar)) +
                     values = c("blue", "grey80")) + 
   scale_x_discrete(name = "Photoperiod", breaks = c("Long", "Short"), labels = c("Neutral", "Short"))
 
-ggsave("fatpad.tiff", width = 5, height = 4, dpi = 300)
+ggsave("fatpad.png", width = 5, height = 4, dpi = 800)
 
 ## Fatpad model
 str(fatpad)
@@ -230,7 +234,7 @@ ggplot(liverdata, aes(PhotoSugar, PercentArea)) +
   scale_fill_manual(name="Sugar", labels=c("High", "None"), 
                     values = c("blue", "grey80"))
 
-ggsave("macrosteatosis.tiff", height = 4, width = 5, dpi = 300)
+ggsave("macrosteatosis.png", height = 4, width = 5, dpi = 800)
 
 ## STEATOSIS MODEL ##
 liverlm = lmer(PercentArea ~ Photoperiod*Sugar + (1|ID), liverdata)
@@ -247,11 +251,10 @@ liverlm2 = lmer(PercentNorm~Photoperiod*Sugar + (1|ID), liverdata)
 qqp(resid(liverlm2))
 plot(density(resid(liverlm2)))
 if(requireNamespace("pbkrtest", quietly = TRUE))
-  anova(liverlm2, type=2, ddf="Kenward-Roger")
+  anova(liverlm2, type=3, ddf="Kenward-Roger")
 
 
 # SUGAR CONSUMPTION ####
-
 #set factors
 str(conc)
 conc$Consumed = as.numeric(conc$Consumed)
@@ -289,28 +292,74 @@ ggplot(twopercentTest, aes(Treatment, PercConsumed, group = Treatment)) +
                     values = c("#56B4E9", "#D55E00"))
 
 
-ggsave("twopercentconsume.tiff", width = 5, height = 4, dpi = 300)
+ggsave("twopercentconsume.png", width = 5, height = 4, dpi = 800)
 
 ## 2% consumption model
 twopercentlm = lmer(Consumed~Treatment + (1|Indiv), twopercentTest)
 qqp(resid(twopercentlm))
 plot(density(resid(twopercentlm)))
+plot(twopercentlm)
+
+# normalize and rerun
+library(bestNormalize)
+bestobj = bestNormalize(twopercentTest$Consumed)
+bestobj #
+bestobj1 = orderNorm(twopercentTest$Consumed)
+twopercentTest$ConsumedNorm = bestobj1$x.t
+
+#rerun
+twopercentlm = lmer(ConsumedNorm~Treatment + (1|Indiv), twopercentTest)
+qqp(resid(twopercentlm))
+plot(density(resid(twopercentlm)))
+plot(twopercentlm)
+
 if(requireNamespace("pbkrtest", quietly = TRUE))
-  anova(twopercentlm, type=2, ddf="Kenward-Roger")
+  anova(twopercentlm, type=3, ddf="Kenward-Roger")
+
+#run with sex for reviewer 1 comments
+twopercentlm1 = lmer(ConsumedNorm~Treatment*Sex + (1|Indiv), twopercentTest)
+qqp(resid(twopercentlm1))
+plot(twopercentlm1)
+
+if(requireNamespace("pbkrtest", quietly = TRUE))
+  anova(twopercentlm1, type=3, ddf="Kenward-Roger")
 
 ## Subset data into animals during the 0% and 8% Test
 zeroAnd8 = conc %>% filter(Pre_test == "Test")
 write.csv(zeroAnd8, "SucroseTest.csv") # clean data to remove 0.02, 0.04, 0.06 sucrose animals
-
+ 
 zeroAnd8Clean = read.csv("SucroseTest.csv")
 zeroAnd8Clean = zeroAnd8Clean %>% filter(Sugar_mmt_good == "Y") %>% filter(Water_mmt_good == "Y") 
 zeroAnd8Clean = zeroAnd8Clean %>% filter(is.na(zeroAnd8Clean$DopamineStage))
 
+zeroAnd8Clean = zeroAnd8Clean %>% filter(Sugar_conc == 0 | Sugar_conc == 0.08)
+zeroAnd8Clean = zeroAnd8Clean %>% select(-DopamineStage)
+zeroAnd8Clean = zeroAnd8Clean %>% select(Indiv, Date, Day, Month, Year, DaySinceStart, 
+                                         Treatment,Sugar_conc,Sugar_mmt_good,
+                                         Water_mmt_good, 
+                                         Consumed, Fed_water_g_perday,
+                                         Fed_sugarsoln_g_perday, Sex)
+
+
+write.csv(zeroAnd8Clean, "zeroAnd8Clean.csv") ## remove dates up to 
+# 5/16 (phase 1) and up to 8/13 (phase 2) that were part of the 'ramping up' dates
+
+str(zeroAnd8Clean)
+zeroAnd8CleanNEW = read.csv("zeroAnd8Clean.csv")
+
+zeroAnd8CleanNEW$Sugar_conc_Char[which(zeroAnd8CleanNEW$Sugar_conc=='0')] = 'Water'
+zeroAnd8CleanNEW$Sugar_conc_Char[which(zeroAnd8CleanNEW$Sugar_conc=='0.08')] = "8% Sucrose"
+
+zeroAnd8CleanNEW$Indiv = as.factor(zeroAnd8CleanNEW$Indiv)
+zeroAnd8CleanNEW$Treatment = as.factor(zeroAnd8CleanNEW$Treatment)
+zeroAnd8CleanNEW$Sex = as.factor(zeroAnd8CleanNEW$Sex)
+zeroAnd8CleanNEW$Consumed = as.numeric(zeroAnd8CleanNEW$Consumed)
+zeroAnd8CleanNEW$Sugar_conc = as.factor(zeroAnd8CleanNEW$Sugar_conc)
+
 # Look at difference in consumption between 0.00
 # FIlter out 8% animals for 0% water preference ####
 #sugar consumption preference
-
-NoSugarAnimals = zeroAnd8Clean %>% select(-DopamineStage) %>% 
+NoSugarAnimals = zeroAnd8CleanNEW %>% 
   select(Indiv, Day, Treatment,Sugar_conc,Sugar_mmt_good,Water_mmt_good, 
          Consumed, Fed_water_g_perday,Fed_sugarsoln_g_perday, Sex) %>% 
   filter(Sugar_conc == 0.00) %>% filter(Sugar_mmt_good == "Y") %>% filter(Water_mmt_good == "Y") 
@@ -329,6 +378,10 @@ colnames(NosugarAnimalsBottle2)[8] = 'Drank'
 
 #merge the frames by ID and Day
 NoSugarAnimalsNEW = rbind(NosugarAnimalsBottle1, NosugarAnimalsBottle2)
+NoSugarAnimalsNEW$Treatment = as.factor(NoSugarAnimalsNEW$Treatment)
+NoSugarAnimalsNEW$Bottle = as.factor(NoSugarAnimalsNEW$Bottle)
+NoSugarAnimalsNEW$Indiv = as.factor(NoSugarAnimalsNEW$Indiv)
+NoSugarAnimalsNEW$Day = as.factor(NoSugarAnimalsNEW$Day)
 
 #nosugarperlm = lmer(BottlePref ~ (1|Indiv) + (1|Day), NoSugarAnimals, REML = TRUE)
 nosugarperlm = lmer(Drank ~ Bottle + Treatment + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
@@ -341,31 +394,33 @@ plot(density(resid(nosugarperlm)))
 
 #Normalize and rerun
 library(bestNormalize)
-#bestobj = bestNormalize(NoSugarAnimals$BottlePref)
-#bestobj # ordernorm best
-#bestobj1 = orderNorm(NoSugarAnimals$BottlePref)
-#NoSugarAnimals$valueNorm = bestobj1$x.t
-
 bestobj = bestNormalize(NoSugarAnimalsNEW$Drank)
-bestobj # ordernorm best
-bestobj1 = orderNorm(NoSugarAnimalsNEW$Drank)
+bestobj #
+bestobj1 = arcsinh_x(NoSugarAnimalsNEW$Drank)
 NoSugarAnimalsNEW$valueNormWater = bestobj1$x.t
 
 nosugarperlm1 = lmer(valueNormWater ~ Bottle + Treatment + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
 qqp(resid(nosugarperlm1))
 plot(density(resid(nosugarperlm1)))
-
-#look at sex in response to reviewer 1
-nosugarperlm1 = lmer(valueNormWater ~ Bottle + Treatment*Sex + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
-qqp(resid(nosugarperlm1))
-plot(density(resid(nosugarperlm1)))
-
+plot(nosugarperlm1)
 
 if(requireNamespace("pbkrtest", quietly = TRUE))
-  anova(nosugarperlm1, type=2, ddf="Kenward-Roger")
+  anova(nosugarperlm1, type=3, ddf="Kenward-Roger")
+
+#look at sex in response to reviewer 1
+nosugarperlm2 = lmer(valueNormWater ~ Bottle + Treatment*Sex + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
+qqp(resid(nosugarperlm2))
+plot(density(resid(nosugarperlm2)))
+plot(nosugarperlm2)
+
+if(requireNamespace("pbkrtest", quietly = TRUE))
+  anova(nosugarperlm2, type=3, ddf="Kenward-Roger")
+
+summary(pairs(emmeans(nosugarperlm2, ~Treatment)))
+summary(pairs(emmeans(nosugarperlm2, ~Sex)))
 
 # filter out 0% animals ####
-EightperAnimals = zeroAnd8Clean %>% select(-DopamineStage) %>% 
+EightperAnimals = zeroAnd8CleanNEW  %>% 
   select(Indiv,Day, Treatment,Sugar_conc, Sugar_mmt_good, Water_mmt_good, 
          Consumed, Fed_water_g_perday, Fed_sugarsoln_g_perday, Sex) %>% 
   filter(Sugar_conc == 0.08) %>% filter(Sugar_mmt_good == "Y") %>% filter(Water_mmt_good == "Y")
@@ -383,9 +438,18 @@ colnames(EightperAnimalsBottle2)[8] = 'Drank'
 #merge the frames by ID and Day
 EightperAnimalsNEW = rbind(EightperAnimalsBottle1, EightperAnimalsBottle2)
 
-#eightperlm = lmer(BottlePref ~ (1|Indiv) + (1|Day), EightperAnimals, REML = TRUE)
+str(EightperAnimalsNEW)
+EightperAnimalsNEW$Treatment = as.factor(EightperAnimalsNEW$Treatment)
+EightperAnimalsNEW$Bottle = as.factor(EightperAnimalsNEW$Bottle)
+
+
 # relationship of second bottle consumed to the first bottle
 eightperlm = lmer(Drank ~ Bottle + Treatment + (1|Indiv) + (1|Day), EightperAnimalsNEW, REML = TRUE)
+qqp(resid(eightperlm))
+plot(density(resid(eightperlm)))
+plot(eightperlm)
+
+eightperlm = lmer(Drank ~ Bottle + Treatment*Sex + (1|Indiv) + (1|Day), EightperAnimalsNEW, REML = TRUE)
 qqp(resid(eightperlm))
 plot(density(resid(eightperlm)))
 
@@ -398,19 +462,39 @@ EightperAnimalsNEW$valueNormSugar = bestobj1$x.t
 eightperlm1 = lmer(valueNormSugar ~ Bottle + Treatment + (1|Indiv) + (1|Day), EightperAnimalsNEW, REML = TRUE)
 qqp(resid(eightperlm1))
 plot(density(resid(eightperlm1)))
+plot(eightperlm1)
 
-# model sex in response to reviewer 1
-eightperlm1 = lmer(valueNormSugar ~ Bottle + Treatment*Sex + (1|Indiv) + (1|Day), EightperAnimalsNEW, REML = TRUE)
-qqp(resid(eightperlm1))
-plot(density(resid(eightperlm1)))
+# run glmmTMB with beta distribution instead of lmer because of nonnormal distribution
+library(glmmTMB)
+library(mgcv)
+library(DHARMa)
+# make Drank values between 0 and 1 for model
+EightperAnimalsNEW$DrankNew = EightperAnimalsNEW$Drank/100
 
-if(requireNamespace("pbkrtest", quietly = TRUE)) 
-  anova(eightperlm1, type=2, ddf="Kenward-Roger")
+eightperlm = glmmTMB(DrankNew ~ Bottle + Treatment + (1|Indiv) + (1|Day), data = EightperAnimalsNEW,
+                    family = ordbeta())
 
-pairs(emmeans(eightperlm1, ~Sex|Treatment))
+car::Anova(eightperlm)
+
+simulationOutput <- simulateResiduals(fittedModel = eightperlm, plot =F)
+
+plot(simulationOutput)
+plotQQunif(simulationOutput)
+
+eightperlm1 = glmmTMB(DrankNew ~ Bottle + Treatment + Sex + Treatment*Sex + (1|Indiv) + (1|Day), data = EightperAnimalsNEW,
+                     family = ordbeta())
+
+car::Anova(eightperlm1)
+summary(pairs(emmeans(eightperlm1, ~Sex)))
+
+simulationOutput <- simulateResiduals(fittedModel = eightperlm1, plot =F)
+
+plot(simulationOutput)
+plotQQunif(simulationOutput)
+
 ## Figure 4
 ## Plot 0% and 8% consumption
-threeWeekTest = read.csv("threeWeekTest.csv") # open as new data frame
+threeWeekTest = read.csv("zeroAnd8Clean.csv") # open as new data frame
 # set factors
 threeWeekTest$Treatment = as.factor(threeWeekTest$Treatment)
 threeWeekTest$Sugar_conc = as.factor(threeWeekTest$Sugar_conc)
@@ -420,9 +504,9 @@ threeWeekTest$Sugar_conc_Char = NA
 threeWeekTest$Sugar_conc_Char[which(threeWeekTest$Sugar_conc=='0')] = 'Water'
 threeWeekTest$Sugar_conc_Char[which(threeWeekTest$Sugar_conc=='0.08')] = "8% Sucrose"
 
-ggplot(threeWeekTest, aes(Treatment, Consumed)) + 
+ggplot(zeroAnd8Clean, aes(Treatment, Consumed)) + 
   geom_boxplot(aes(fill = Treatment), outlier.shape = NA) + 
-  geom_point(aes(fill = Treatment), size = 1.5, shape = threeWeekTest$Sex, 
+  geom_point(aes(fill = Treatment), size = 1.5, shape = 21, 
              position = position_jitterdodge()) +
   facet_grid(~factor(Sugar_conc_Char, levels = c("Water", "8% Sucrose"))) + my_theme + 
   scale_fill_manual(values = c("blue", "grey80")) + 
@@ -432,4 +516,4 @@ ggplot(threeWeekTest, aes(Treatment, Consumed)) +
 
 ggsave("0and8.tiff", width =5 , height = 4, dpi = 300)
 
-ggsave("0and8.png", width =5 , height = 4, dpi = 300)
+save.image("Animal_Data.RData")
