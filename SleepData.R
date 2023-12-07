@@ -204,7 +204,7 @@ qqp(resid(fourWeekSleep))
 plot(density(resid(fourWeekSleep)))
 
 if(requireNamespace("pbkrtest", quietly = TRUE)) 
-  anova(fourWeekSleep, type=2, ddf="Kenward-Roger")
+  anova(fourWeekSleep, ddf="Kenward-Roger")
 
 ## SLEEP BOUTS ####
 
@@ -364,7 +364,7 @@ qqp(resid(fourWeekBouts))
 plot(density(resid(fourWeekBouts)))
 
 if(requireNamespace("pbkrtest", quietly = TRUE)) 
-  anova(fourWeekBouts, type=2, ddf="Kenward-Roger")
+  anova(fourWeekBouts, ddf="Kenward-Roger")
 
 ### Sleep data for last 2-weeks on sugar ####
 #Phase1
@@ -482,7 +482,7 @@ qqp(resid(highSucroseSleep))
 plot(density(resid(highSucroseSleep)))
 
 if(requireNamespace("pbkrtest", quietly = TRUE)) 
-  anova(highSucroseSleep, type=3, ddf="Kenward-Roger")
+  anova(highSucroseSleep, ddf="Kenward-Roger")
 
 
 ## Sleep Figure for MS ####
