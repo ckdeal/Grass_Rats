@@ -62,24 +62,11 @@ weight = weight %>% mutate(pctChange = (Weight_euthanasia - Weight_start)/Weight
 mean(weight$pctChange) #mean
 sd(weight$pctChange) #sd
 
-## Plot of pct weight from start to end 
-#weight2 = weight %>% ungroup(Photoperiod, Sugar) %>% select(Individual, Weight_start, Weight_euthanasia) %>%
-  #melt()
-#bp = ggplot(weight2, aes(variable, value), group = variable) + geom_boxplot(aes(fill = variable))
-#bp + labs(x = NULL, y = "Percent change in body mass (%)") + scale_x_discrete(breaks=c("Weight_start","Weight_euthanasia"),
-                                                                              #labels=c("Start Weight", "Euthanasia Weight")) + my_theme + 
-  #scale_fill_discrete(labels=c('Start Weight', 'Euthanasia Weight')) + 
-  #theme(legend.title=element_blank()) + geom_signif(comparisons = list(c("Weight_start", "Weight_euthanasia")), 
-                                                    #map_signif_level=TRUE)
-
-#ggsave("pctchange.png", width = 5, height = 4, dpi = 800)
-
 ## model this pct change
 pct = lmer(value~variable + (1|Individual), weight2)
 if(requireNamespace("pbkrtest", quietly = TRUE))
-  anova(pct, type=3, ddf="Kenward-Roger")
+  anova(pct, ddf="Kenward-Roger")
 
-summary(pct)
 qqp(resid(pct))
 hist(resid(pct))
 
@@ -136,42 +123,8 @@ weights$Photoperiod = as.factor(weights$Photoperiod)
 weights$Sugar = as.factor(weights$Sugar)
 str(weights)
 
-# one-way ANOVA for 4-week acclimation comparing between photoperiods
-fourWeekaov = lm(pct_presugar~Photoperiod, data = weights)
-summary(fourWeekaov)
-qqp(resid(fourWeekaov))
-plot(density(resid(fourWeekaov)))
-
-#Normalize data
-bestNormalize(weights$pct_presugar)
-normobj = log_x(weights$pct_presugar)
-weights$fourWeekNorm = normobj$x.t
-
-#rerun model
-fourWeekaov2 = lm(fourWeekNorm~Photoperiod, data = weights)
-summary(fourWeekaov2)
-pairs(emmeans(fourWeekaov2, ~Photoperiod))
-qqp(resid(fourWeekaov2))
-plot(density(resid(fourWeekaov2)))
-
-## Run kruskal.test, data no normal after transform
+## Run kruskal.test
 kruskal.test(weights$pct_presugar~weights$Photoperiod)
-
-## Model at euthanasia
-euthaov = aov(pct_euthanasia~Photoperiod*Sugar, data = weights)
-qqp(resid(euthaov))
-summary(euthaov)
-
-#normalize
-bestNormalize(weights$pct_euthanasia)
-bestobj2 = log_x(weights$pct_euthanasia)
-weights$euthNorm = bestobj2$x.t
-
-#rerun aov
-euthaov2 = aov(euthNorm~Photoperiod*Sugar, data = weights)
-qqp(resid(euthaov2))
-summary(euthaov2)
-pairs(emmeans(euthaov2, ~Photoperiod*Sugar))
 
 ## Kruskal wallis for weight at euthanasia
 inter = interaction(weights$Photoperiod, weights$Sugar)
@@ -251,8 +204,7 @@ liverlm2 = lmer(PercentNorm~Photoperiod*Sugar + (1|ID), liverdata)
 qqp(resid(liverlm2))
 plot(density(resid(liverlm2)))
 if(requireNamespace("pbkrtest", quietly = TRUE))
-  anova(liverlm2, type=3, ddf="Kenward-Roger")
-
+  anova(liverlm2, ddf="Kenward-Roger")
 
 # SUGAR CONSUMPTION ####
 #set factors
@@ -314,7 +266,7 @@ plot(density(resid(twopercentlm)))
 plot(twopercentlm)
 
 if(requireNamespace("pbkrtest", quietly = TRUE))
-  anova(twopercentlm, type=3, ddf="Kenward-Roger")
+  anova(twopercentlm, ddf="Kenward-Roger")
 
 #run with sex for reviewer 1 comments
 twopercentlm1 = lmer(ConsumedNorm~Treatment*Sex + (1|Indiv), twopercentTest)
@@ -322,7 +274,7 @@ qqp(resid(twopercentlm1))
 plot(twopercentlm1)
 
 if(requireNamespace("pbkrtest", quietly = TRUE))
-  anova(twopercentlm1, type=3, ddf="Kenward-Roger")
+  anova(twopercentlm1, ddf="Kenward-Roger")
 
 ## Subset data into animals during the 0% and 8% Test
 zeroAnd8 = conc %>% filter(Pre_test == "Test")
@@ -405,7 +357,7 @@ plot(density(resid(nosugarperlm1)))
 plot(nosugarperlm1)
 
 if(requireNamespace("pbkrtest", quietly = TRUE))
-  anova(nosugarperlm1, type=3, ddf="Kenward-Roger")
+  anova(nosugarperlm1, ddf="Kenward-Roger")
 
 #look at sex in response to reviewer 1
 nosugarperlm2 = lmer(valueNormWater ~ Bottle + Treatment*Sex + (1|Indiv) + (1|Day), NoSugarAnimalsNEW, REML = TRUE)
@@ -414,7 +366,7 @@ plot(density(resid(nosugarperlm2)))
 plot(nosugarperlm2)
 
 if(requireNamespace("pbkrtest", quietly = TRUE))
-  anova(nosugarperlm2, type=3, ddf="Kenward-Roger")
+  anova(nosugarperlm2, ddf="Kenward-Roger")
 
 summary(pairs(emmeans(nosugarperlm2, ~Treatment)))
 summary(pairs(emmeans(nosugarperlm2, ~Sex)))
@@ -441,7 +393,6 @@ EightperAnimalsNEW = rbind(EightperAnimalsBottle1, EightperAnimalsBottle2)
 str(EightperAnimalsNEW)
 EightperAnimalsNEW$Treatment = as.factor(EightperAnimalsNEW$Treatment)
 EightperAnimalsNEW$Bottle = as.factor(EightperAnimalsNEW$Bottle)
-
 
 # relationship of second bottle consumed to the first bottle
 eightperlm = lmer(Drank ~ Bottle + Treatment + (1|Indiv) + (1|Day), EightperAnimalsNEW, REML = TRUE)
