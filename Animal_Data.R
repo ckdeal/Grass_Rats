@@ -25,7 +25,7 @@
 
 ## Read in data files
 conc <- read.csv("SugarConcTest_weights_05Feb2020.csv")
-fatpad <- read.csv(("Fat_pads.csv"))
+fatpad <- read.csv("Fat_pads.csv")
 weights <- read.csv(("Animal_weights_forMassChange.csv"))
 liverdata = read.csv("Merged_Liver.csv")
 age = read.csv("Chamber_Animal_IDs_Sex_bothPhases.csv")
@@ -52,7 +52,6 @@ mean(agephase2$startAge, na.rm = TRUE)
 sd(agephase2$startAge, na.rm = TRUE)
 
 # ANIMAL WEIGHT DATA ####
-weight
 # subset data and set factors for body mass change over experiment
 weight = weights %>% dplyr::select(Individual, Group, Sugar, Photoperiod, Weight_start, Weight_euthanasia) %>% group_by(Sugar, Photoperiod) %>% 
   na.omit()
