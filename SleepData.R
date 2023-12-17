@@ -31,6 +31,7 @@ stat_pop_sleep_trial <- function(mapping = NULL, data = NULL,
   )
 }
 #
+
 ## Read in sleep data
 #Phase 1 animals DAILY SLEEP TOTALS ####
 anim_ID_phase1 = read.csv("Chamber_Animal_IDs.csv")
@@ -196,7 +197,6 @@ mean(Short$value)
 sd(Short$value)
 
 # mixed models
-library(car)
 DailySleepBothPhases2$Photoperiod = as.factor(DailySleepBothPhases2$Photoperiod)
 DailySleepBothPhases2$Sugar = as.factor(DailySleepBothPhases2$Sugar)
 fourWeekSleep = lmer(value~Photoperiod + (1|GrassRat_ID), DailySleepBothPhases2, REML = TRUE)
@@ -486,7 +486,6 @@ if(requireNamespace("pbkrtest", quietly = TRUE))
 
 
 ## Sleep Figure for MS ####
-
 ## Read in files
 anim_ID_sex <- read.csv("Chamber_Animal_IDs_Sex_bothPhases.csv")
 piezoday_4wk1 <- read.csv("4WeekPhotoperiod_24Apr2019_combined_with_sub_day.csv")
